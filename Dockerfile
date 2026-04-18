@@ -5,6 +5,9 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Instalar Chrome usando repositorio oficial de Google
 RUN apt-get update && apt-get install -y \
     wget curl gnupg ca-certificates \
+
+    tesseract-ocr \
+    
     --no-install-recommends \
     && curl -fsSL https://dl.google.com/linux/linux_signing_key.pub \
     | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg \
