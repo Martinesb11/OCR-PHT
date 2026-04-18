@@ -1,15 +1,4 @@
 import re
-import cv2
-import pytesseract
-
-
-def limpiar_texto(texto):
-    texto = texto.upper()
-    texto = texto.replace(' ', '')
-    texto = texto.replace('-', '')
-    texto = texto.replace('\n', '')
-    texto = re.sub(r'[^A-Z0-9]', '', texto)
-    return texto
 
 
 def detectar_placa_desde_imagen(image_path):
@@ -17,42 +6,32 @@ def detectar_placa_desde_imagen(image_path):
         image = cv2.imread(image_path)
 
         if image is None:
+            print('No se pudo leer la imagen')
             return None
 
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        # Detectar placas con YOLO
+        resultados = modelo_placas(image_path)
 
-        # Reducir ruido
-        gray = cv2.bilateralFilter(gray, 11, 17, 17)
+        for resultado in resultados:
+            cajas = resultado.boxes
 
-        # Detectar bordes
-        edges = cv2.Canny(gray, 30, 200)
+            for caja in cajas:
+                x1, y1, x2, y2 = map(int, caja.xyxy[0])
 
-        # Buscar contornos
-        contornos, _ = cv2.findContours(
-            edges.copy(),
-            cv2.RETR_TREE,
-            cv2.CHAIN_APPROX_SIMPLE
-        )
+                # Recortar la placa
+                placa = image[y1:y2, x1:x2]
 
-        contornos = sorted(contornos, key=cv2.contourArea, reverse=True)[:20]
-
-        for contorno in contornos:
-            perimetro = cv2.arcLength(contorno, True)
-            aproximacion = cv2.approxPolyDP(contorno, 0.018 * perimetro, True)
-
-            # Buscar rectángulos de 4 lados
-            if len(aproximacion) == 4:
-                x, y, w, h = cv2.boundingRect(contorno)
-
-                # Filtrar tamaños pequeños
-                if w < 80 or h < 25:
+                if placa.size == 0:
                     continue
 
-                placa = gray[y:y + h, x:x + w]
+                print(f'Placa detectada en coordenadas: {x1}, {y1}, {x2}, {y2}')
 
-                # Agrandar recorte
-                placa = cv2.resize(
-                    placa,
+                # Convertir a gris
+                gray = cv2.cvtColor(placa, cv2.COLOR_BGR2GRAY)
+
+                # Agrandar imagen
+                gray = cv2.resize(
+                    gray,
                     None,
                     fx=4,
                     fy=4,
@@ -60,16 +39,18 @@ def detectar_placa_desde_imagen(image_path):
                 )
 
                 # Mejorar imagen
-                placa = cv2.GaussianBlur(placa, (5, 5), 0)
-                placa = cv2.threshold(
-                    placa,
+                gray = cv2.bilateralFilter(gray, 11, 17, 17)
+                gray = cv2.GaussianBlur(gray, (5, 5), 0)
+                gray = cv2.threshold(
+                    gray,
                     0,
                     255,
                     cv2.THRESH_BINARY + cv2.THRESH_OTSU
                 )[1]
 
+                # OCR
                 texto = pytesseract.image_to_string(
-                    placa,
+                    gray,
                     config='--psm 7 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-'
                 )
 
@@ -77,11 +58,12 @@ def detectar_placa_desde_imagen(image_path):
 
                 print(f'Texto OCR detectado: {texto}')
 
+                # Validar formato
                 if re.match(r'^[A-Z0-9]{6,8}$', texto):
                     return texto
 
         return None
 
     except Exception as e:
-        print(f'Error OCR: {e}')
+        print(f'Error OCR con YOLO: {e}')
         return None
