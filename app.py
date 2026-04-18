@@ -206,6 +206,10 @@ def webhook():
         print(f"Body: {msg_data.get('body')}")
         print(f"ID mensaje: {msg_data.get('id')}")
         print(f"Mimetype: {msg_data.get('mimetype')}")
+
+        msg_type = msg_data.get('type')
+        media_url = msg_data.get('media')
+
         
         # Solo del grupo autorizado
         if msg_data.get('from') != GRUPO_AUTORIZADO:
@@ -220,6 +224,53 @@ def webhook():
         autor = (msg_data.get('author') or msg_data.get('from', '')).replace('@c.us', '').replace('+', '').strip()
         print(f'Mensaje de {autor}: {body}')
 
+        if msg_type == 'image' and media_url:
+            try:
+                enviar_mensaje(
+                    GRUPO_AUTORIZADO,
+                    '📸 Imagen recibida, analizando placa...'
+                )
+
+                nombre_archivo = f"temp/imagenes/{autor}_{int(time.time())}.jpg"
+        
+                r = requests.get(media_url, timeout=30)
+        
+                with open(nombre_archivo, 'wb') as f:
+                    f.write(r.content)
+        
+                print(f'Imagen guardada en: {nombre_archivo}')
+        
+                placa_detectada = detectar_placa_desde_imagen(nombre_archivo)
+        
+                if placa_detectada:
+                    enviar_mensaje(
+                        GRUPO_AUTORIZADO,
+                        f'📸 Placa detectada: *{placa_detectada}*'
+                    )
+                else:
+                    enviar_mensaje(
+                        GRUPO_AUTORIZADO,
+                        '⚠️ No pude detectar la placa. Envía una foto más clara o usa CONSULTA ABC123'
+                    )
+
+                try:
+                    os.remove(nombre_archivo)
+                except:
+                    pass
+
+                return jsonify({'status': 'imagen_procesada'}), 200
+
+            except Exception as e:
+                print(f'❌ Error procesando imagen: {e}')
+                enviar_mensaje(
+                    GRUPO_AUTORIZADO,
+                    '❌ Error procesando la imagen.'
+                )
+                return jsonify({'status': 'error_imagen'}), 500
+
+
+
+        
         if body.startswith('CONSULTA '):
             placa = body.replace('CONSULTA ', '').strip()
             if 6 <= len(placa) <= 8:
