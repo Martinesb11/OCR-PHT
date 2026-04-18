@@ -23,8 +23,22 @@ def detectar_placa_desde_imagen(image_path):
         # Convertir a escala de grises
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-        # Mejorar contraste y nitidez
-        gray = cv2.GaussianBlur(gray, (3, 3), 0)
+        # Agrandar imagen para facilitar OCR
+        gray = cv2.resize(
+            gray,
+            None,
+            fx=3,
+            fy=3,
+            interpolation=cv2.INTER_CUBIC
+        )
+
+        # Reducir ruido manteniendo bordes
+        gray = cv2.bilateralFilter(gray, 11, 17, 17)
+
+        # Suavizar imagen
+        gray = cv2.GaussianBlur(gray, (5, 5), 0)
+
+        # Aplicar umbral binario
         gray = cv2.threshold(
             gray,
             0,
