@@ -197,7 +197,11 @@ def webhook():
     try:
         data     = request.json or {}
         msg_data = data.get('data', {})
-
+        
+        print('========== WEBHOOK COMPLETO ==========')
+        print(data)
+        print('======================================')
+        
         # Solo del grupo autorizado
         if msg_data.get('from') != GRUPO_AUTORIZADO:
             print(f'Ignorado (no autorizado): {msg_data.get("from")}')
