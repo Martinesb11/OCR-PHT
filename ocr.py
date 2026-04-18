@@ -6,6 +6,8 @@ import pytesseract
 def limpiar_texto(texto):
     texto = texto.upper()
     texto = texto.replace(' ', '')
+    texto = texto.replace('-', '')
+    texto = texto.replace('\n', '')
     texto = re.sub(r'[^A-Z0-9]', '', texto)
     return texto
 
@@ -30,8 +32,11 @@ def detectar_placa_desde_imagen(image_path):
             cv2.THRESH_BINARY + cv2.THRESH_OTSU
         )[1]
 
-        # OCR con Tesseract
-        texto = pytesseract.image_to_string(gray)
+        # OCR con Tesseract optimizado para placas
+        texto = pytesseract.image_to_string(
+            gray,
+            config='--psm 7 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-'
+        )
 
         # Limpiar texto detectado
         texto = limpiar_texto(texto)
