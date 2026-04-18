@@ -201,6 +201,11 @@ def webhook():
         print('========== WEBHOOK COMPLETO ==========')
         print(data)
         print('======================================')
+        print(f"Tipo: {msg_data.get('type')}")
+        print(f"Media: {msg_data.get('media')}")
+        print(f"Body: {msg_data.get('body')}")
+        print(f"ID mensaje: {msg_data.get('id')}")
+        print(f"Mimetype: {msg_data.get('mimetype')}")
         
         # Solo del grupo autorizado
         if msg_data.get('from') != GRUPO_AUTORIZADO:
