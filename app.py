@@ -1,3 +1,4 @@
+from ocr import detectar_placa_desde_imagen
 import os
 import time
 import base64
