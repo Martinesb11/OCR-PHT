@@ -14,52 +14,71 @@ def limpiar_texto(texto):
 
 def detectar_placa_desde_imagen(image_path):
     try:
-        # Leer imagen
         image = cv2.imread(image_path)
 
         if image is None:
             return None
 
-        # Convertir a escala de grises
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-        # Agrandar imagen para facilitar OCR
-        gray = cv2.resize(
-            gray,
-            None,
-            fx=3,
-            fy=3,
-            interpolation=cv2.INTER_CUBIC
-        )
-
-        # Reducir ruido manteniendo bordes
+        # Reducir ruido
         gray = cv2.bilateralFilter(gray, 11, 17, 17)
 
-        # Suavizar imagen
-        gray = cv2.GaussianBlur(gray, (5, 5), 0)
+        # Detectar bordes
+        edges = cv2.Canny(gray, 30, 200)
 
-        # Aplicar umbral binario
-        gray = cv2.threshold(
-            gray,
-            0,
-            255,
-            cv2.THRESH_BINARY + cv2.THRESH_OTSU
-        )[1]
-
-        # OCR con Tesseract optimizado para placas
-        texto = pytesseract.image_to_string(
-            gray,
-            config='--psm 7 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-'
+        # Buscar contornos
+        contornos, _ = cv2.findContours(
+            edges.copy(),
+            cv2.RETR_TREE,
+            cv2.CHAIN_APPROX_SIMPLE
         )
 
-        # Limpiar texto detectado
-        texto = limpiar_texto(texto)
+        contornos = sorted(contornos, key=cv2.contourArea, reverse=True)[:20]
 
-        print(f'Texto OCR detectado: {texto}')
+        for contorno in contornos:
+            perimetro = cv2.arcLength(contorno, True)
+            aproximacion = cv2.approxPolyDP(contorno, 0.018 * perimetro, True)
 
-        # Validar si parece una placa
-        if re.match(r'^[A-Z0-9]{6,8}$', texto):
-            return texto
+            # Buscar rectángulos de 4 lados
+            if len(aproximacion) == 4:
+                x, y, w, h = cv2.boundingRect(contorno)
+
+                # Filtrar tamaños pequeños
+                if w < 80 or h < 25:
+                    continue
+
+                placa = gray[y:y + h, x:x + w]
+
+                # Agrandar recorte
+                placa = cv2.resize(
+                    placa,
+                    None,
+                    fx=4,
+                    fy=4,
+                    interpolation=cv2.INTER_CUBIC
+                )
+
+                # Mejorar imagen
+                placa = cv2.GaussianBlur(placa, (5, 5), 0)
+                placa = cv2.threshold(
+                    placa,
+                    0,
+                    255,
+                    cv2.THRESH_BINARY + cv2.THRESH_OTSU
+                )[1]
+
+                texto = pytesseract.image_to_string(
+                    placa,
+                    config='--psm 7 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-'
+                )
+
+                texto = limpiar_texto(texto)
+
+                print(f'Texto OCR detectado: {texto}')
+
+                if re.match(r'^[A-Z0-9]{6,8}$', texto):
+                    return texto
 
         return None
 
